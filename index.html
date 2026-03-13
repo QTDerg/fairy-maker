@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fairy Maker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap');
+
+  :root {
+    --bg: #0a0808;
+    --panel-bg: #110e0e;
+    --panel-border: #3a2a1a;
+    --accent: #c8922a;
+    --accent-dim: #7a5518;
+    --text: #e8d5b0;
+    --text-dim: #8a7a60;
+    --input-bg: #1a1410;
+    --slot-bg: #161210;
+    --slot-hover: #1e1815;
+    --toggle-on: #c8922a;
+    --toggle-off: #2a2020;
+    --glow: rgba(200,146,42,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── VIEWPORT ── */
+  #viewport {
+    flex: 1;
+    position: relative;
+    background: radial-gradient(ellipse at 50% 60%, #1c1008 0%, #050303 100%);
+    overflow: hidden;
+  }
+  #viewport canvas { display: block; }
+
+  #loading-screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 18px;
+    background: radial-gradient(ellipse at 50% 60%, #1c1008 0%, #050303 100%);
+    z-index: 10;
+  }
+  #loading-screen.hidden { display: none; }
+
+  .load-card {
+    border: 1px solid var(--panel-border);
+    background: rgba(17,14,14,0.95);
+    padding: 44px 56px;
+    text-align: center;
+    display: flex; flex-direction: column; gap: 18px;
+    align-items: center;
+    box-shadow: 0 0 80px rgba(0,0,0,0.9), inset 0 0 40px rgba(200,146,42,0.03);
+    position: relative;
+    min-width: 320px;
+  }
+  .load-card::before { content:''; position:absolute; top:-1px; left:-1px; width:14px; height:14px; border-top:2px solid var(--accent); border-left:2px solid var(--accent); }
+  .load-card::after  { content:''; position:absolute; bottom:-1px; right:-1px; width:14px; height:14px; border-bottom:2px solid var(--accent); border-right:2px solid var(--accent); }
+
+  .load-title {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .load-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  #progress-bar-wrap {
+    width: 200px; height: 2px;
+    background: var(--panel-border);
+    overflow: hidden;
+    display: none;
+  }
+  #progress-bar-wrap.visible { display: block; }
+  #progress-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.2s;
+  }
+
+  #error-msg {
+    color: #c84040;
+    font-size: 13px;
+    display: none;
+  }
+
+  /* ── PANEL ── */
+  #panel {
+    width: 320px;
+    min-width: 320px;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: -4px 0 30px rgba(0,0,0,0.5);
+  }
+
+  .panel-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(180deg, #161210 0%, var(--panel-bg) 100%);
+    flex-shrink: 0;
+  }
+  .panel-header-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    flex: 1;
+  }
+
+  #panel-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  #panel-scroll::-webkit-scrollbar { width: 4px; }
+  #panel-scroll::-webkit-scrollbar-track { background: transparent; }
+  #panel-scroll::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+
+  /* ── MATERIAL SLOT ── */
+  .slot {
+    background: var(--slot-bg);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .slot:hover { border-color: var(--panel-border); }
+  .slot.active { border-color: var(--accent-dim); }
+
+  .slot-header {
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--slot-bg);
+    transition: background 0.15s;
+  }
+  .slot-header:hover { background: var(--slot-hover); }
+
+  .slot-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
+
+  .slot-name {
+    flex: 1;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .slot-badge {
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--panel-border);
+  }
+
+  .slot-toggle {
+    width: 32px; height: 16px;
+    border-radius: 8px;
+    background: var(--toggle-off);
+    border: 1px solid var(--panel-border);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s;
+    margin-left: 2px;
+  }
+  .slot-toggle.on { background: var(--toggle-on); border-color: var(--accent); }
+  .slot-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: left 0.2s, background 0.2s;
+  }
+  .slot-toggle.on::after { left: 18px; background: #fff; }
+
+  .slot-chevron {
+    font-size: 9px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .slot-chevron.open { transform: rotate(180deg); }
+
+  .slot-body {
+    display: none;
+    padding: 10px 12px 12px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    flex-direction: column;
+    gap: 10px;
+  }
+  .slot-body.open { display: flex; }
+
+  /* ── CONTROLS ── */
+  .ctrl-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ctrl-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    width: 60px;
+    flex-shrink: 0;
+  }
+  .ctrl-label.wide { width: 80px; }
+
+  input[type="color"] {
+    width: 32px; height: 22px;
+    border: 1px solid var(--panel-border);
+    border-radius: 2px;
+    background: var(--input-bg);
+    cursor: pointer;
+    padding: 1px 2px;
+    flex-shrink: 0;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 2px;
+    background: var(--panel-border);
+    border-radius: 1px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+
+  .ctrl-value {
+    font-size: 11px;
+    color: var(--text-dim);
+    width: 30px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .ctrl-note {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-style: italic;
+    line-height: 1.4;
+  }
+
+  /* ── SECTION DIVIDER ── */
+  .section-divider {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 2px;
+    margin-top: 4px;
+  }
+  .section-divider-line { flex:1; height:1px; background: var(--panel-border); }
+  .section-divider-text {
+    font-family: 'Cinzel', serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* ── DEBUG ── */
+  #debug-panel {
+    border-top: 1px solid var(--panel-border);
+    padding: 10px 12px;
+    flex-shrink: 0;
+    background: #0d0a0a;
+  }
+  #debug-toggle {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    user-select: none;
+  }
+  #debug-toggle:hover { color: var(--accent); }
+  #debug-content {
+    display: none;
+    margin-top: 8px;
+    max-height: 130px;
+    overflow-y: auto;
+    font-size: 10px;
+    color: #6a9a6a;
+    font-family: monospace;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  #debug-content.open { display: block; }
+
+  /* ── SAVE/LOAD ── */
+  #saveload {
+    border-top: 1px solid var(--panel-border);
+    padding: 12px;
+    flex-shrink: 0;
+    background: #0d0a0a;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .saveload-label {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  #code-field {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    font-size: 10px;
+    font-family: monospace;
+    padding: 6px 8px;
+    border-radius: 2px;
+    resize: none;
+    height: 42px;
+    outline: none;
+  }
+  #code-field:focus { border-color: var(--accent-dim); }
+
+  .saveload-btns {
+    display: flex; gap: 6px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--panel-border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    border-radius: 2px;
+  }
+  .btn:hover { background: var(--slot-hover); border-color: var(--accent-dim); color: var(--accent); }
+  .btn.primary { border-color: var(--accent-dim); color: var(--accent); }
+  .btn.primary:hover { background: rgba(200,146,42,0.1); border-color: var(--accent); }
+  .btn.success { border-color: #40a060; color: #40a060; }
+
+  .copy-msg {
+    font-size: 10px;
+    color: #40a060;
+    text-align: center;
+    display: none;
+  }
+  .copy-msg.show { display: block; }
+
+  /* ── CAMERA CONTROLS HINT ── */
+  #hint {
+    position: absolute;
+    bottom: 14px; left: 14px;
+    font-size: 10px;
+    color: rgba(138,122,96,0.5);
+    letter-spacing: 1px;
+    pointer-events: none;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<!-- VIEWPORT -->
+<div id="viewport">
+  <div id="loading-screen">
+    <div class="load-card">
+      <div class="load-title">Loading Model</div>
+      <div class="load-sub" id="loading-sub">Initializing…</div>
+      <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+      <div id="error-msg"></div>
+    </div>
+  </div>
+  <div id="hint">LMB drag — Orbit &nbsp;|&nbsp; RMB drag — Pan &nbsp;|&nbsp; Scroll — Zoom</div>
+</div>
+
+<!-- PANEL -->
+<div id="panel">
+  <div class="panel-header">
+    <div class="panel-title" style="font-family:'Cinzel',serif;font-size:13px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;flex:1;">Customize</div>
+  </div>
+
+  <div id="panel-scroll">
+    <!-- slots rendered by JS -->
+  </div>
+
+  <!-- DEBUG -->
+  <div id="debug-panel">
+    <div id="debug-toggle">▸ &nbsp;Material Debug</div>
+    <div id="debug-content"></div>
+  </div>
+
+  <!-- SAVE/LOAD -->
+  <div id="saveload">
+    <div class="saveload-label">Share Code</div>
+    <textarea id="code-field" placeholder="Paste a share code here…" spellcheck="false"></textarea>
+    <div class="saveload-btns">
+      <button class="btn primary" id="btn-export">Export</button>
+      <button class="btn" id="btn-import">Import</button>
+      <button class="btn" id="btn-copy">Copy</button>
+    </div>
+    <div class="copy-msg" id="copy-msg">Copied to clipboard!</div>
+  </div>
+</div>
+
+<!-- THREE.JS + FBX LOADER -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+// FBXLoader r128 (inline, stripped essential)
+// ─────────────────────────────────────────────
+</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  SLOT DEFINITIONS
+//  order here = order in panel; matching is done by name lookup
+// ══════════════════════════════════════════════════════════════
+const SLOT_DEFS = [
+  // name (display),        key,               defaultColor, defaultBrightness, options
+  { label: 'Skin',          key: 'skin',        color:'#f4c89a', bright:1.0 },
+  { label: 'Hair',          key: 'hair',        color:'#3a2010', bright:1.0,
+    ponytailToggle: true   // special: also drives Ponytail & Ponytail Huge
+  },
+  { label: 'Eyes',          key: 'eyes',        color:'#4488cc', bright:1.0, useEyeTex: true },
+  { label: 'Eyebrows',      key: 'eyebrows',    color:'#2a1a0a', bright:1.0, useEyeTex: true },
+  { label: 'Lips',          key: 'lips',        color:'#c05060', bright:1.0 },
+  { label: 'Dress',         key: 'dress',       color:'#8844aa', bright:1.0 },
+  { label: 'Dress Overlay', key: 'dressoverlay',color:'#8844aa', bright:1.0, hiddenByDefault: true },
+  { label: 'Helmet',        key: 'helmet',      color:'#8899aa', bright:1.0, toggleable: true, defaultVisible: false },
+  { label: 'Shield',        key: 'shield',      color:'#8899aa', bright:1.0, toggleable: true, defaultVisible: false },
+  { label: 'Wings',         key: 'wings',       color:'#ffffff', bright:1.0, fixedOpacity: 0.3 },
+  { label: 'Dragon Wings',  key: 'dragonwings', color:'#441111', bright:1.0, hiddenByDefault: true },
+  { label: 'Infinity',      key: 'infinity',    color:'#88aaff', bright:1.0, hiddenByDefault: true },
+  { label: 'Ponytail',      key: 'ponytail',    color:'#3a2010', bright:1.0, ponytailVariant: 'small' },
+  { label: 'Ponytail Huge', key: 'ponytailhuge',color:'#3a2010', bright:1.0, ponytailVariant: 'huge' },
+];
+
+// Keywords to match FBX material names → slot keys
+// We do case-insensitive substring matching in order of specificity
+const MATCHERS = [
+  { key: 'ponytailhuge', terms: ['ponytail huge', 'ponytailhuge', 'huge ponytail'] },
+  { key: 'ponytail',     terms: ['ponytail'] },
+  { key: 'dressoverlay', terms: ['dress overlay', 'dressoverlay', 'overlay'] },
+  { key: 'dragonwings',  terms: ['dragon wing', 'dragonwing'] },
+  { key: 'infinity',     terms: ['infinity'] },
+  { key: 'wings',        terms: ['wing'] },
+  { key: 'shield',       terms: ['shield'] },
+  { key: 'skin',         terms: ['skin'] },
+  { key: 'eyes',         terms: ['eye'] },
+  { key: 'hair',         terms: ['hair'] },
+  { key: 'lips',         terms: ['lip'] },
+  { key: 'dress',        terms: ['dress'] },
+  { key: 'eyebrows',     terms: ['eyebrow','brow'] },
+  { key: 'helmet',       terms: ['helmet'] },
+];
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+const state = {
+  colors:      {},
+  brightness:  {},
+  visible:     {},
+  ponytailBig: true,   // true = Ponytail Huge, false = Ponytail
+};
+
+// init state from defs
+SLOT_DEFS.forEach(d => {
+  state.colors[d.key]     = d.color;
+  state.brightness[d.key] = d.bright;
+  if (d.toggleable)       state.visible[d.key] = d.defaultVisible;
+  if (d.hiddenByDefault)  state.visible[d.key] = false;
+  if (d.fixedOpacity !== undefined) state.visible[d.key] = true;
+  if (d.ponytailVariant)  state.visible[d.key] = (d.ponytailVariant === 'huge');
+});
+
+// ══════════════════════════════════════════════════════════════
+//  THREE.JS SETUP
+// ══════════════════════════════════════════════════════════════
+const viewport = document.getElementById('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.outputEncoding = THREE.sRGBEncoding;
+viewport.appendChild(renderer.domElement);
+
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x080506);
+scene.fog = new THREE.FogExp2(0x080506, 0.018);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000);
+camera.position.set(0, 5, 25);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.target.set(0, 1.0, 0);
+controls.minDistance = 0.5;
+controls.maxDistance = 20;
+
+// Lights
+const ambientLight = new THREE.AmbientLight(0xffeedd, 0.4);
+scene.add(ambientLight);
+
+const keyLight = new THREE.DirectionalLight(0xfff5e0, 1.2);
+keyLight.position.set(2, 4, 3);
+keyLight.castShadow = true;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xc0d8ff, 0.4);
+fillLight.position.set(-3, 2, -1);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffd080, 0.6);
+rimLight.position.set(0, 3, -4);
+scene.add(rimLight);
+
+function resize() {
+  const w = viewport.clientWidth, h = viewport.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ══════════════════════════════════════════════════════════════
+//  EYE TEXTURE
+// ══════════════════════════════════════════════════════════════
+let eyeTexture = null;
+const texLoader = new THREE.TextureLoader();
+texLoader.load(
+  'eye.png',
+  tex => {
+    tex.encoding = THREE.sRGBEncoding;
+    eyeTexture = tex;
+    debugLog('eye.png loaded');
+    // Rebuild eye/eyebrow materials with texture
+    ['eyes','eyebrows'].forEach(k => { delete builtMaterials[k]; });
+    applyAllMaterials();
+  },
+  undefined,
+  () => debugLog('eye.png not found — eyes/eyebrows will use vertex color only')
+);
+
+// ══════════════════════════════════════════════════════════════
+//  MODEL LOADING
+// ══════════════════════════════════════════════════════════════
+let model = null;
+// map: slotKey → array of THREE.Material
+const slotMaterials = {};
+// raw material name → slotKey (for debug)
+const matNameToKey = {};
+
+const loadingScreen = document.getElementById('loading-screen');
+const loadingSub    = document.getElementById('loading-sub');
+const progressWrap  = document.getElementById('progress-bar-wrap');
+const progressBar   = document.getElementById('progress-bar');
+const errorMsg      = document.getElementById('error-msg');
+
+progressWrap.classList.add('visible');
+loadingSub.textContent = 'Loading model.fbx…';
+
+const fbxLoader = new THREE.FBXLoader();
+fbxLoader.load(
+  'model.fbx',
+  fbx => {
+    model = fbx;
+
+    // Blender FBX export scale fix
+    fbx.scale.set(0.01, 0.01, 0.01);
+
+    // Center at origin base
+    const box2 = new THREE.Box3().setFromObject(fbx);
+    const center = box2.getCenter(new THREE.Vector3());
+    fbx.position.x -= center.x;
+    fbx.position.z -= center.z;
+    fbx.position.y -= box2.min.y;
+
+    scene.add(fbx);
+
+    // Collect materials
+    const allMatNames = [];
+    fbx.traverse(obj => {
+      if (!obj.isMesh) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach(mat => {
+        if (!mat) return;
+        const name = (mat.name || '').trim();
+        allMatNames.push(name);
+        const key = matchMaterialName(name);
+        if (key) {
+          if (!slotMaterials[key]) slotMaterials[key] = [];
+          if (!slotMaterials[key].includes(mat)) {
+            slotMaterials[key].push(mat);
+            matNameToKey[name] = key;
+          }
+        } else {
+          matNameToKey[name] = '(unmatched)';
+        }
+      });
+    });
+
+    debugLog('=== FBX Material Names ===\n' +
+      allMatNames.map(n => `  "${n}" → ${matNameToKey[n] || '(unmatched)'}`).join('\n'));
+
+    loadingScreen.classList.add('hidden');
+    applyAllMaterials();
+
+    // Camera orbit target at model center-ish
+    const b = new THREE.Box3().setFromObject(fbx);
+    const c = b.getCenter(new THREE.Vector3());
+    controls.target.copy(c);
+    controls.update();
+  },
+  xhr => {
+    if (xhr.total) {
+      const pct = (xhr.loaded / xhr.total * 100).toFixed(0);
+      progressBar.style.width = pct + '%';
+      loadingSub.textContent = `Loading… ${pct}%`;
+    }
+  },
+  err => {
+    loadingSub.style.display = 'none';
+    progressWrap.style.display = 'none';
+    errorMsg.style.display = 'block';
+    errorMsg.textContent = 'Could not load model.fbx — make sure it is in the same folder as this HTML file and served via a local server.';
+    console.error(err);
+  }
+);
+
+// ══════════════════════════════════════════════════════════════
+//  MATERIAL MATCHING
+// ══════════════════════════════════════════════════════════════
+function matchMaterialName(name) {
+  const lower = name.toLowerCase();
+  for (const m of MATCHERS) {
+    for (const t of m.terms) {
+      if (lower.includes(t)) return m.key;
+    }
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CUSTOM SHADER MATERIAL FACTORY
+//  Vertex color * user color * brightness
+// ══════════════════════════════════════════════════════════════
+function buildMaterial(slotDef, originalMat) {
+  const hasVertexColors = originalMat && originalMat.vertexColors;
+  const useEyeTex = slotDef.useEyeTex && eyeTexture;
+
+  // Build a MeshStandardMaterial with onBeforeCompile injection
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    map: useEyeTex ? eyeTexture : (originalMat ? originalMat.map : null),
+    normalMap: originalMat ? originalMat.normalMap : null,
+    roughness:  originalMat ? (originalMat.roughness  ?? 0.8) : 0.8,
+    metalness:  originalMat ? (originalMat.metalness  ?? 0.0) : 0.0,
+    transparent: slotDef.fixedOpacity !== undefined,
+    opacity:     slotDef.fixedOpacity !== undefined ? slotDef.fixedOpacity : 1.0,
+    side: slotDef.fixedOpacity !== undefined ? THREE.DoubleSide : THREE.FrontSide,
+  });
+
+  mat.userData.userColor   = new THREE.Color(slotDef.color);
+  mat.userData.brightness  = slotDef.bright;
+  mat.userData.slotKey     = slotDef.key;
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uUserColor  = { value: mat.userData.userColor };
+    shader.uniforms.uBrightness = { value: mat.userData.brightness };
+
+    // Declare uniforms in GLSL before main()
+    shader.fragmentShader = shader.fragmentShader.replace(
+      'void main() {',
+      'uniform vec3 uUserColor;\nuniform float uBrightness;\nvoid main() {'
+    );
+
+    // Inject blend after color_fragment
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      '#include <color_fragment>\n       #ifdef USE_COLOR\n         diffuseColor.rgb *= vColor.rgb;\n       #endif\n       diffuseColor.rgb *= uUserColor;\n       diffuseColor.rgb *= uBrightness;'
+    );
+    mat.userData.shader = shader;
+  };
+
+  return mat;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  APPLY MATERIALS TO MODEL
+// ══════════════════════════════════════════════════════════════
+const builtMaterials = {}; // slotKey → new mat
+
+// Store original materials for reference when rebuilding
+const originalMaterials = {}; // key → original THREE.Material
+
+function applyAllMaterials() {
+  if (!model) return;
+
+  model.traverse(obj => {
+    if (!obj.isMesh) return;
+
+    const applyToMesh = (mat) => {
+      const name = (mat && mat.name) ? mat.name.trim() : '';
+      // If this is already one of our built materials, get key from it
+      let key = mat.userData && mat.userData.slotKey ? mat.userData.slotKey : matchMaterialName(name);
+      if (!key) return mat;
+
+      const def = SLOT_DEFS.find(d => d.key === key);
+      if (!def) return mat;
+
+      // Store original if not yet stored
+      if (!originalMaterials[key]) {
+        originalMaterials[key] = mat;
+      }
+
+      // Build or rebuild (rebuild if eyeTexture just loaded)
+      if (!builtMaterials[key]) {
+        builtMaterials[key] = buildMaterial(def, originalMaterials[key]);
+      }
+      return builtMaterials[key];
+    };
+
+    if (Array.isArray(obj.material)) {
+      obj.material = obj.material.map(applyToMesh);
+    } else {
+      obj.material = applyToMesh(obj.material);
+    }
+
+    applyVisibility(obj);
+  });
+}
+
+function applyVisibility(obj) {
+  if (!obj.isMesh) return;
+  const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+  // If ANY material on this mesh is hidden, hide mesh
+  // (We check per-material slot key)
+  let shouldHide = false;
+  mats.forEach(mat => {
+    if (!mat) return;
+    const key = mat.userData && mat.userData.slotKey;
+    if (!key) return;
+    if (isSlotHidden(key)) shouldHide = true;
+  });
+  if (shouldHide) obj.visible = false;
+  else obj.visible = true;
+}
+
+function isSlotHidden(key) {
+  const def = SLOT_DEFS.find(d => d.key === key);
+  if (!def) return false;
+  if (def.hiddenByDefault) {
+    return state.visible[key] === false;
+  }
+  if (def.toggleable) {
+    return state.visible[key] === false;
+  }
+  if (def.ponytailVariant) {
+    if (def.ponytailVariant === 'huge') return !state.ponytailBig;
+    if (def.ponytailVariant === 'small') return state.ponytailBig;
+  }
+  return false;
+}
+
+function refreshMaterialUniforms() {
+  SLOT_DEFS.forEach(def => {
+    const mat = builtMaterials[def.key];
+    if (!mat || !mat.userData.shader) return;
+    mat.userData.shader.uniforms.uUserColor.value  = new THREE.Color(state.colors[def.key]);
+    mat.userData.shader.uniforms.uBrightness.value = state.brightness[def.key];
+    // hair color also drives ponytail keys
+    if (def.key === 'hair') {
+      ['ponytail','ponytailhuge'].forEach(pk => {
+        const pm = builtMaterials[pk];
+        if (pm && pm.userData.shader) {
+          pm.userData.shader.uniforms.uUserColor.value  = new THREE.Color(state.colors['hair']);
+          pm.userData.shader.uniforms.uBrightness.value = state.brightness['hair'];
+        }
+        state.colors[pk]     = state.colors['hair'];
+        state.brightness[pk] = state.brightness['hair'];
+      });
+    }
+  });
+}
+
+function refreshVisibility() {
+  if (!model) return;
+  model.traverse(obj => {
+    if (obj.isMesh) applyVisibility(obj);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UI RENDERING
+// ══════════════════════════════════════════════════════════════
+function buildPanel() {
+  const scroll = document.getElementById('panel-scroll');
+  scroll.innerHTML = '';
+
+  // Group: general, then accessories, then hidden
+  const groups = [
+    { label: 'Character', keys: ['skin','hair','eyes','lips','wings'] },
+    { label: 'Outfit',    keys: ['dress','helmet','shield'] },
+    { label: 'Hair Style', keys: ['ponytailhuge','ponytail'] },
+  ];
+
+  groups.forEach(group => {
+    const divider = document.createElement('div');
+    divider.className = 'section-divider';
+    divider.innerHTML = `<div class="section-divider-line"></div><div class="section-divider-text">${group.label}</div><div class="section-divider-line"></div>`;
+    scroll.appendChild(divider);
+
+    group.keys.forEach(key => {
+      const def = SLOT_DEFS.find(d => d.key === key);
+      if (!def) return;
+      scroll.appendChild(buildSlotEl(def));
+    });
+  });
+}
+
+function buildSlotEl(def) {
+  const div = document.createElement('div');
+  div.className = 'slot';
+  div.dataset.key = def.key;
+
+  // Dot color preview
+  const dotColor = state.colors[def.key];
+
+  // Badges
+  let badges = '';
+  if (def.hiddenByDefault) badges += `<span class="slot-badge">hidden</span>`;
+  if (def.fixedOpacity !== undefined) badges += `<span class="slot-badge">α ${def.fixedOpacity}</span>`;
+  if (def.useEyeTex) badges += `<span class="slot-badge">tex</span>`;
+
+  // Toggle button (for toggleable & ponytail & hidden-by-default visibility)
+  let toggleHTML = '';
+  const isToggleable = def.toggleable || def.hiddenByDefault || def.ponytailVariant;
+  if (isToggleable) {
+    const on = isVisible(def);
+    toggleHTML = `<div class="slot-toggle ${on ? 'on' : ''}" data-key="${def.key}" title="Toggle visibility"></div>`;
+  }
+
+  div.innerHTML = `
+    <div class="slot-header" data-key="${def.key}">
+      <div class="slot-dot" style="background:${dotColor}"></div>
+      <div class="slot-name">${def.label}</div>
+      ${badges}
+      ${toggleHTML}
+      <div class="slot-chevron">▼</div>
+    </div>
+    <div class="slot-body" data-key="${def.key}">
+      ${buildSlotBody(def)}
+    </div>
+  `;
+
+  // Header expand/collapse
+  div.querySelector('.slot-header').addEventListener('click', e => {
+    // Don't toggle body if clicking the visibility toggle
+    if (e.target.classList.contains('slot-toggle')) return;
+    const body = div.querySelector('.slot-body');
+    const chev = div.querySelector('.slot-chevron');
+    const open  = body.classList.toggle('open');
+    chev.classList.toggle('open', open);
+    div.classList.toggle('active', open);
+  });
+
+  // Visibility toggle
+  const tog = div.querySelector('.slot-toggle');
+  if (tog) {
+    tog.addEventListener('click', e => {
+      e.stopPropagation();
+      handleToggle(def.key, tog);
+    });
+  }
+
+  // Color picker
+  const colorPicker = div.querySelector(`input[type="color"][data-key="${def.key}"]`);
+  if (colorPicker) {
+    colorPicker.addEventListener('input', e => {
+      const col = e.target.value;
+      state.colors[def.key] = col;
+      // Sync ponytail keys to hair
+      if (def.key === 'hair') {
+        state.colors['ponytail']     = col;
+        state.colors['ponytailhuge'] = col;
+        // update ponytail color pickers if open
+        ['ponytail','ponytailhuge'].forEach(pk => {
+          const pp = document.querySelector(`input[type="color"][data-key="${pk}"]`);
+          if (pp) pp.value = col;
+        });
+      }
+      div.querySelector('.slot-dot').style.background = col;
+      refreshMaterialUniforms();
+    });
+  }
+
+  // Brightness slider
+  const brightnessSlider = div.querySelector(`input[type="range"][data-key="${def.key}"]`);
+  const brightnessVal    = div.querySelector(`.ctrl-value[data-key="${def.key}"]`);
+  if (brightnessSlider) {
+    brightnessSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value);
+      state.brightness[def.key] = val;
+      if (def.key === 'hair') {
+        state.brightness['ponytail']     = val;
+        state.brightness['ponytailhuge'] = val;
+      }
+      if (brightnessVal) brightnessVal.textContent = val.toFixed(2);
+      refreshMaterialUniforms();
+    });
+  }
+
+  return div;
+}
+
+function buildSlotBody(def) {
+  // Ponytail variants get a note that color is driven by Hair
+  const isPonytail = def.ponytailVariant;
+  if (isPonytail) {
+    return `<div class="ctrl-note">Color & brightness controlled by the Hair slot.</div>`;
+  }
+
+  const colorVal = state.colors[def.key];
+  const brightVal = state.brightness[def.key];
+
+  return `
+    <div class="ctrl-row">
+      <div class="ctrl-label">Color</div>
+      <input type="color" data-key="${def.key}" value="${colorVal}">
+      <div style="flex:1;font-size:10px;color:var(--text-dim);margin-left:4px;">${def.key === 'hair' ? 'also drives ponytails' : ''}</div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl-label">Brightness</div>
+      <input type="range" data-key="${def.key}" min="0" max="3" step="0.01" value="${brightVal}">
+      <div class="ctrl-value" data-key="${def.key}">${brightVal.toFixed(2)}</div>
+    </div>
+    ${def.fixedOpacity !== undefined ? `<div class="ctrl-note">Opacity fixed at ${def.fixedOpacity}.</div>` : ''}
+  `;
+}
+
+function isVisible(def) {
+  if (def.hiddenByDefault || def.toggleable) {
+    return state.visible[def.key] !== false;
+  }
+  if (def.ponytailVariant === 'huge') return state.ponytailBig;
+  if (def.ponytailVariant === 'small') return !state.ponytailBig;
+  return true;
+}
+
+function handleToggle(key, togEl) {
+  const def = SLOT_DEFS.find(d => d.key === key);
+  if (!def) return;
+
+  if (def.ponytailVariant) {
+    // Switch between the two
+    state.ponytailBig = (def.ponytailVariant === 'huge');
+    // Update both toggles
+    ['ponytailhuge','ponytail'].forEach(pk => {
+      const pdef = SLOT_DEFS.find(d => d.key === pk);
+      const pt   = document.querySelector(`.slot-toggle[data-key="${pk}"]`);
+      if (pt) pt.classList.toggle('on', isVisible(pdef));
+    });
+  } else {
+    const cur = state.visible[key] !== false;
+    state.visible[key] = !cur;
+    togEl.classList.toggle('on', !cur);
+  }
+
+  refreshVisibility();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DEBUG LOG
+// ══════════════════════════════════════════════════════════════
+const debugContent = document.getElementById('debug-content');
+function debugLog(msg) {
+  console.log(msg);
+  debugContent.textContent += msg + '\n';
+}
+
+document.getElementById('debug-toggle').addEventListener('click', () => {
+  debugContent.classList.toggle('open');
+  const open = debugContent.classList.contains('open');
+  document.getElementById('debug-toggle').childNodes[0].textContent = open ? '▾ ' : '▸ ';
+});
+
+// ══════════════════════════════════════════════════════════════
+//  SAVE / LOAD
+// ══════════════════════════════════════════════════════════════
+function exportState() {
+  const data = {
+    v: 1,
+    colors:      state.colors,
+    brightness:  state.brightness,
+    visible:     state.visible,
+    ponytailBig: state.ponytailBig,
+  };
+  return btoa(JSON.stringify(data));
+}
+
+function importState(str) {
+  try {
+    const data = JSON.parse(atob(str.trim()));
+    if (data.v !== 1) throw new Error('version mismatch');
+    Object.assign(state.colors,     data.colors     || {});
+    Object.assign(state.brightness, data.brightness || {});
+    Object.assign(state.visible,    data.visible    || {});
+    state.ponytailBig = data.ponytailBig !== undefined ? data.ponytailBig : true;
+    buildPanel();
+    refreshMaterialUniforms();
+    refreshVisibility();
+    return true;
+  } catch(e) {
+    alert('Invalid share code: ' + e.message);
+    return false;
+  }
+}
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  document.getElementById('code-field').value = exportState();
+});
+
+document.getElementById('btn-import').addEventListener('click', () => {
+  const val = document.getElementById('code-field').value.trim();
+  if (!val) { alert('Paste a share code first.'); return; }
+  importState(val);
+});
+
+document.getElementById('btn-copy').addEventListener('click', () => {
+  const field = document.getElementById('code-field');
+  if (!field.value) field.value = exportState();
+  navigator.clipboard.writeText(field.value).then(() => {
+    const msg = document.getElementById('copy-msg');
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 2000);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  INIT PANEL
+// ══════════════════════════════════════════════════════════════
+// Sync ponytail state to hair before building
+state.colors['ponytail']      = state.colors['hair'];
+state.colors['ponytailhuge']  = state.colors['hair'];
+state.brightness['ponytail']  = state.brightness['hair'];
+state.brightness['ponytailhuge'] = state.brightness['hair'];
+buildPanel();
+</script>
+</body>
+</html>
