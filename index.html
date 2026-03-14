@@ -406,7 +406,7 @@
   #hint {
     position: absolute;
     bottom: 14px; left: 14px;
-    font-size: 10px;
+    font-size: 16px;
     color: rgba(138,122,96,0.5);
     letter-spacing: 1px;
     pointer-events: none;
@@ -426,7 +426,7 @@
       <div id="error-msg"></div>
     </div>
   </div>
-  <div id="hint">LMB drag — Orbit &nbsp;|&nbsp; RMB drag — Pan &nbsp;|&nbsp; Scroll — Zoom</div>
+  <div id="hint">LMB drag — Orbit &nbsp;|&nbsp; RMB drag — Pan &nbsp;|&nbsp; Scroll — Zoom <br> Note: It looks like eyebrows coloring works only on Firefox!</div>
 </div>
 
 <!-- PANEL -->
@@ -811,7 +811,7 @@ function buildMaterial(slotDef, originalMat) {
        // '  vec4  _mask    = texture2D(uEyeMask, vMaskUv);',
        // '  vec3  _colored = _mask.rgb * uUserColor * uBrightness;',
        // '  diffuseColor.rgb = mix(diffuseColor.rgb, _colored, _mask.a);',
-	  // Eyebrow coloring broken, eye coloring working as intended:
+	  // Eyebrow coloring broken, eye coloring working as intended: // NOTE: Looks like it works on Firefox but not in Chrome/Edge
 	   '  vec4  _mask    = texture2D(uEyeMask, vMaskUv);',
         '  // mask.a=1 means sclera/highlight — keep base untouched there',
         '  // mask.a=0 means iris — apply userColor * brightness there',
@@ -966,8 +966,8 @@ function buildPanel() {
 
   // Group: general, then accessories, then hidden
   const groups = [
-    { label: 'Character',  keys: ['skin','hair','eyes','lips','wings'] },
-    // remove the broken eyebrow option { label: 'Character',  keys: ['skin','hair','eyes','eyebrows','lips','wings'] },
+    //{ label: 'Character',  keys: ['skin','hair','eyes','lips','wings'] },
+    { label: 'Character',  keys: ['skin','hair','eyes','eyebrows','lips','wings'] },
     { label: 'Outfit',     keys: ['dress','helmet','shield'] },
     { label: 'Hair Style', keys: ['ponytailhuge','ponytail'] },
   ];
