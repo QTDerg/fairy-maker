@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fairy Maker</title>
+<title>Character Customizer</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap');
 
@@ -481,7 +481,7 @@ const SLOT_DEFS = [
     ponytailToggle: true   // special: also drives Ponytail & Ponytail Huge
   },
   { label: 'Eyes',          key: 'eyes',        color:'#4488cc', bright:1.0, useEyeTex: true },
-  { label: 'Eyebrows',      key: 'eyebrows',    color:'#2a1a0a', bright:1.0, useEyeTex: true },
+  { label: 'Eyebrows',      key: 'eyebrows',    color:'#2a1a0a', bright:1.0, useEyebrowTex: true },
   { label: 'Lips',          key: 'lips',        color:'#c05060', bright:1.0 },
   { label: 'Dress',         key: 'dress',       color:'#8844aa', bright:1.0 },
   { label: 'Dress Overlay', key: 'dressoverlay',color:'#8844aa', bright:1.0, hiddenByDefault: true },
@@ -505,11 +505,11 @@ const MATCHERS = [
   { key: 'wings',        terms: ['wing'] },
   { key: 'shield',       terms: ['shield'] },
   { key: 'skin',         terms: ['skin'] },
+  { key: 'eyebrows',     terms: ['eyebrow','brow'] },
   { key: 'eyes',         terms: ['eye'] },
   { key: 'hair',         terms: ['hair'] },
   { key: 'lips',         terms: ['lip'] },
   { key: 'dress',        terms: ['dress'] },
-  { key: 'eyebrows',     terms: ['eyebrow','brow'] },
   { key: 'helmet',       terms: ['helmet'] },
 ];
 
@@ -591,23 +591,52 @@ function animate() {
 animate();
 
 // ══════════════════════════════════════════════════════════════
-//  EYE TEXTURE
+//  EYE TEXTURES
 // ══════════════════════════════════════════════════════════════
-let eyeTexture = null;
+let eyeTexture    = null;
+let eyeMaskTexture = null;
 const texLoader = new THREE.TextureLoader();
-texLoader.load(
-  'eye.png',
-  tex => {
-    tex.encoding = THREE.sRGBEncoding;
-    eyeTexture = tex;
-    debugLog('eye.png loaded');
-    // Rebuild eye/eyebrow materials with texture
-    ['eyes','eyebrows'].forEach(k => { delete builtMaterials[k]; });
-    applyAllMaterials();
-  },
-  undefined,
-  () => debugLog('eye.png not found — eyes/eyebrows will use vertex color only')
-);
+
+function onEyeTexturesUpdated() {
+  ['eyes','eyebrows'].forEach(k => { delete builtMaterials[k]; });
+  applyAllMaterials();
+}
+
+function loadEyeTexture() {
+  texLoader.load(
+    'eye.png',
+    tex => {
+      tex.encoding = THREE.sRGBEncoding;
+      // Nearest filter for PSX-style look
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      eyeTexture = tex;
+      debugLog('eye.png loaded');
+      onEyeTexturesUpdated();
+    },
+    undefined,
+    () => debugLog('eye.png not found')
+  );
+}
+
+function loadEyeMaskTexture() {
+  texLoader.load(
+    'eye_mask.png',
+    tex => {
+      tex.encoding = THREE.sRGBEncoding;
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      eyeMaskTexture = tex;
+      debugLog('eye_mask.png loaded');
+      onEyeTexturesUpdated();
+    },
+    undefined,
+    () => debugLog('eye_mask.png not found')
+  );
+}
+
+loadEyeTexture();
+loadEyeMaskTexture();
 
 // ══════════════════════════════════════════════════════════════
 //  MODEL LOADING
@@ -713,40 +742,110 @@ function matchMaterialName(name) {
 //  Vertex color * user color * brightness
 // ══════════════════════════════════════════════════════════════
 function buildMaterial(slotDef, originalMat) {
-  const hasVertexColors = originalMat && originalMat.vertexColors;
-  const useEyeTex = slotDef.useEyeTex && eyeTexture;
+  // Three distinct eye modes:
+  //   useEyeTex      = eyes:      eye.png base (untouched) + eye_mask.png * userColor * brightness on top
+  //   useEyebrowTex  = eyebrows:  eye.png * userColor * brightness, masked cutout
+  //   (neither)      = all other slots: vertexColor * userColor * brightness
+  const isEyes      = !!(slotDef.useEyeTex     && eyeTexture);
+  const isEyebrows  = !!(slotDef.useEyebrowTex && eyeTexture);
+  const hasMask     = isEyes && !!eyeMaskTexture;
+  const isWings     = slotDef.fixedOpacity !== undefined;
+  const needsUv     = isEyes || isEyebrows || hasMask;
 
-  // Build a MeshStandardMaterial with onBeforeCompile injection
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    map: useEyeTex ? eyeTexture : (originalMat ? originalMat.map : null),
-    normalMap: originalMat ? originalMat.normalMap : null,
-    roughness:  originalMat ? (originalMat.roughness  ?? 0.8) : 0.8,
-    metalness:  originalMat ? (originalMat.metalness  ?? 0.0) : 0.0,
-    transparent: slotDef.fixedOpacity !== undefined,
-    opacity:     slotDef.fixedOpacity !== undefined ? slotDef.fixedOpacity : 1.0,
-    side: slotDef.fixedOpacity !== undefined ? THREE.DoubleSide : THREE.FrontSide,
+    map:         (isEyes || isEyebrows) ? eyeTexture : (originalMat ? originalMat.map : null),
+    normalMap:   originalMat ? originalMat.normalMap : null,
+    roughness:   originalMat ? (originalMat.roughness ?? 0.8) : 0.8,
+    metalness:   originalMat ? (originalMat.metalness ?? 0.0) : 0.0,
+    alphaTest:   (isEyes || isEyebrows) ? 0.5 : 0.0,
+    transparent: isWings,
+    opacity:     isWings ? slotDef.fixedOpacity : 1.0,
+    depthWrite:  true,
+    side:        isWings ? THREE.DoubleSide : THREE.FrontSide,
   });
 
-  mat.userData.userColor   = new THREE.Color(slotDef.color);
-  mat.userData.brightness  = slotDef.bright;
-  mat.userData.slotKey     = slotDef.key;
+  mat.userData.userColor  = new THREE.Color(state.colors[slotDef.key]);
+  mat.userData.brightness = state.brightness[slotDef.key];
+  mat.userData.slotKey    = slotDef.key;
 
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uUserColor  = { value: mat.userData.userColor };
     shader.uniforms.uBrightness = { value: mat.userData.brightness };
+    if (hasMask) {
+      shader.uniforms.uEyeMask = { value: eyeMaskTexture };
+    }
 
-    // Declare uniforms in GLSL before main()
+    // ── Vertex shader ────────────────────────────────────────────────
+    // Inject our own vMaskUv varying so we never rely on vUv
+    if (needsUv) {
+      shader.vertexShader = shader.vertexShader.replace(
+        'void main() {',
+        'varying vec2 vMaskUv;\nvoid main() {'
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <uv_vertex>',
+        '#include <uv_vertex>\n  vMaskUv = uv;'
+      );
+    }
+
+    // ── Fragment shader: uniforms + optional varying ─────────────────
+    const fragDeclarations = [
+      'uniform vec3      uUserColor;',
+      'uniform float     uBrightness;',
+      needsUv  ? 'varying vec2      vMaskUv;'      : '',
+      hasMask  ? 'uniform sampler2D uEyeMask;'     : '',
+    ].filter(Boolean).join('\n');
+
     shader.fragmentShader = shader.fragmentShader.replace(
       'void main() {',
-      'uniform vec3 uUserColor;\nuniform float uBrightness;\nvoid main() {'
+      fragDeclarations + '\nvoid main() {'
     );
 
-    // Inject blend after color_fragment
+    // ── Color blending ───────────────────────────────────────────────
+    let blendCode;
+    if (isEyes && hasMask) {
+      // eye.png base untouched; composite mask * userColor * brightness on top
+      blendCode = [
+	  // Eyebrow coloring working, eye coloring is inverted:
+       // '  vec4  _mask    = texture2D(uEyeMask, vMaskUv);',
+       // '  vec3  _colored = _mask.rgb * uUserColor * uBrightness;',
+       // '  diffuseColor.rgb = mix(diffuseColor.rgb, _colored, _mask.a);',
+	  // Eyebrow coloring broken, eye coloring working as intended:
+	   '  vec4  _mask    = texture2D(uEyeMask, vMaskUv);',
+        '  // mask.a=1 means sclera/highlight — keep base untouched there',
+        '  // mask.a=0 means iris — apply userColor * brightness there',
+        '  vec3  _colored = diffuseColor.rgb * uUserColor * uBrightness;',
+        '  diffuseColor.rgb = mix(_colored, diffuseColor.rgb, _mask.a);',
+      ].join('\n');
+    } else if (isEyes) {
+      // eye.png with no mask — keep base untouched, no user color on eyes
+      blendCode = '';
+    } else if (isEyebrows) {
+      // eye.png tinted by userColor * brightness
+      blendCode = [
+        '  diffuseColor.rgb *= uUserColor;',
+        '  diffuseColor.rgb *= uBrightness;',
+      ].join('\n');
+    } else {
+      // Standard: vertexColor * userColor * brightness
+      blendCode = [
+        '  diffuseColor.rgb *= uUserColor;',
+        '  diffuseColor.rgb *= uBrightness;',
+      ].join('\n');
+    }
+
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <color_fragment>',
-      '#include <color_fragment>\n       #ifdef USE_COLOR\n         diffuseColor.rgb *= vColor.rgb;\n       #endif\n       diffuseColor.rgb *= uUserColor;\n       diffuseColor.rgb *= uBrightness;'
+      [
+        '#include <color_fragment>',
+        '#ifdef USE_COLOR',
+        '  diffuseColor.rgb *= vColor.rgb;',
+        '#endif',
+        blendCode,
+      ].filter(Boolean).join('\n')
     );
+
     mat.userData.shader = shader;
   };
 
@@ -867,8 +966,9 @@ function buildPanel() {
 
   // Group: general, then accessories, then hidden
   const groups = [
-    { label: 'Character', keys: ['skin','hair','eyes','lips','wings'] },
-    { label: 'Outfit',    keys: ['dress','helmet','shield'] },
+    { label: 'Character',  keys: ['skin','hair','eyes','lips','wings'] },
+    // remove the broken eyebrow option { label: 'Character',  keys: ['skin','hair','eyes','eyebrows','lips','wings'] },
+    { label: 'Outfit',     keys: ['dress','helmet','shield'] },
     { label: 'Hair Style', keys: ['ponytailhuge','ponytail'] },
   ];
 
@@ -898,7 +998,7 @@ function buildSlotEl(def) {
   let badges = '';
   if (def.hiddenByDefault) badges += `<span class="slot-badge">hidden</span>`;
   if (def.fixedOpacity !== undefined) badges += `<span class="slot-badge">α ${def.fixedOpacity}</span>`;
-  if (def.useEyeTex) badges += `<span class="slot-badge">tex</span>`;
+  if (def.useEyeTex || def.useEyebrowTex) badges += `<span class="slot-badge">tex</span>`;
 
   // Toggle button (for toggleable & ponytail & hidden-by-default visibility)
   let toggleHTML = '';
